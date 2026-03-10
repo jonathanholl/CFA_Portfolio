@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operation Timber Trail — Digital Forensics Case Study</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111418;
+    --surface2: #171c22;
+    --border: #1e2530;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #39ff14;
+    --warn: #ffd700;
+    --text: #c8d6e5;
+    --text-dim: #5a6a7a;
+    --text-bright: #eaf2ff;
+    --red: #ff3b3b;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --display: 'Bebas Neue', cursive;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.6;
+    font-size: 15px;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--accent);
+    padding: 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 0 30px rgba(0,212,255,0.15);
+  }
+
+  .header-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .badge {
+    background: var(--accent);
+    color: #000;
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 600;
+    padding: 4px 8px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .header-title {
+    font-family: var(--display);
+    font-size: 22px;
+    letter-spacing: 0.08em;
+    color: var(--text-bright);
+  }
+
+  .header-meta {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: right;
+    line-height: 1.8;
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent3);
+    animation: pulse 2s infinite;
+    margin-right: 5px;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, #0a0c0f 0%, #0d1520 50%, #0a0c0f 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 60px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: 'OPERATION\ATIMBER TRAIL';
+    position: absolute;
+    right: -20px;
+    top: 50%;
+    transform: translateY(-50%) rotate(-90deg);
+    font-family: var(--display);
+    font-size: 120px;
+    color: rgba(0,212,255,0.03);
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .hero-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .case-number {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    margin-bottom: 12px;
+  }
+
+  .hero h1 {
+    font-family: var(--display);
+    font-size: clamp(42px, 6vw, 72px);
+    letter-spacing: 0.05em;
+    color: var(--text-bright);
+    line-height: 1;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 span {
+    color: var(--accent);
+  }
+
+  .hero-desc {
+    font-size: 16px;
+    color: var(--text);
+    max-width: 620px;
+    margin-bottom: 32px;
+    font-weight: 300;
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    padding: 4px 10px;
+    border: 1px solid;
+    text-transform: uppercase;
+  }
+
+  .tag-blue { border-color: var(--accent); color: var(--accent); }
+  .tag-orange { border-color: var(--accent2); color: var(--accent2); }
+  .tag-green { border-color: var(--accent3); color: var(--accent3); }
+  .tag-yellow { border-color: var(--warn); color: var(--warn); }
+
+  /* LAYOUT */
+  .main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+
+  /* SIDEBAR NAV */
+  .sidebar {
+    position: sticky;
+    top: 64px;
+  }
+
+  .nav-section-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    padding: 12px 0 6px;
+    border-top: 1px solid var(--border);
+    margin-top: 12px;
+  }
+
+  .nav-section-label:first-child { border-top: none; margin-top: 0; }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 12px;
+    border-left: 2px solid transparent;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .nav-item:hover, .nav-item.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: rgba(0,212,255,0.04);
+  }
+
+  .nav-num {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    min-width: 18px;
+  }
+
+  /* CONTENT */
+  .content { min-width: 0; }
+
+  .section {
+    margin-bottom: 48px;
+    scroll-margin-top: 80px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-num {
+    font-family: var(--display);
+    font-size: 48px;
+    color: rgba(0,212,255,0.15);
+    line-height: 1;
+    min-width: 52px;
+  }
+
+  .section-title-wrap { flex: 1; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .section-title {
+    font-family: var(--display);
+    font-size: 28px;
+    letter-spacing: 0.06em;
+    color: var(--text-bright);
+  }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .card p { font-size: 14px; color: var(--text); margin-bottom: 10px; }
+  .card p:last-child { margin-bottom: 0; }
+
+  /* STEPS */
+  .steps { counter-reset: step; }
+
+  .step {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    transition: border-left-color 0.2s;
+  }
+
+  .step:hover { border-left-color: var(--accent2); }
+
+  .step-num {
+    font-family: var(--display);
+    font-size: 32px;
+    color: var(--accent);
+    line-height: 1;
+    min-width: 36px;
+    opacity: 0.5;
+  }
+
+  .step-content h4 {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-bright);
+    margin-bottom: 6px;
+  }
+
+  .step-content p { font-size: 13px; color: var(--text); }
+
+  /* CODE BLOCKS */
+  .code-block {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    padding: 16px;
+    margin: 12px 0;
+    overflow-x: auto;
+  }
+
+  .code-block pre {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent3);
+    line-height: 1.7;
+    white-space: pre;
+  }
+
+  .code-comment { color: var(--text-dim) !important; }
+  .code-cmd { color: var(--accent) !important; }
+  .code-val { color: var(--accent2) !important; }
+  .code-hash { color: var(--warn) !important; }
+
+  /* TOOL GRID */
+  .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+
+  .tool-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px;
+    text-align: center;
+    transition: all 0.2s;
+  }
+
+  .tool-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 16px rgba(0,212,255,0.1);
+  }
+
+  .tool-icon {
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+
+  .tool-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-bright);
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+
+  .tool-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* TIMELINE */
+  .timeline { position: relative; padding-left: 24px; }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 8px;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--accent), transparent);
+  }
+
+  .timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+  }
+
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -21px;
+    top: 7px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  .timeline-time {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    margin-bottom: 2px;
+  }
+
+  .timeline-event {
+    font-size: 13px;
+    color: var(--text-bright);
+    font-weight: 500;
+  }
+
+  .timeline-detail {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  /* TABLES */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 12px 0;
+  }
+
+  .data-table th {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--accent);
+    background: var(--surface2);
+  }
+
+  .data-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+  }
+
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: rgba(0,212,255,0.03); }
+
+  .mono-cell {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--warn);
+  }
+
+  /* ALERT BOX */
+  .alert {
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+    margin: 16px 0;
+    border-left: 3px solid;
+  }
+
+  .alert-info { border-color: var(--accent); background: rgba(0,212,255,0.05); }
+  .alert-warn { border-color: var(--warn); background: rgba(255,215,0,0.05); }
+  .alert-crit { border-color: var(--red); background: rgba(255,59,59,0.05); }
+
+  .alert-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .alert-text { font-size: 13px; color: var(--text); }
+  .alert-text strong { color: var(--text-bright); }
+
+  /* FOLDER TREE */
+  .folder-tree {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    background: #0d1117;
+    border: 1px solid var(--border);
+    padding: 20px;
+    line-height: 2;
+  }
+
+  .folder-tree .dir { color: var(--accent); }
+  .folder-tree .file { color: var(--text-dim); }
+  .folder-tree .file-imp { color: var(--text); }
+  .folder-tree .comment { color: var(--text-dim); font-size: 10px; }
+
+  /* CHECKLIST */
+  .checklist { list-style: none; }
+  .checklist li {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    align-items: flex-start;
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .check-box {
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--accent);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .check-label { color: var(--text); }
+  .check-note { color: var(--text-dim); font-size: 11px; font-family: var(--mono); margin-top: 2px; }
+
+  /* HIGHLIGHT */
+  .highlight {
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+
+  .highlight p { font-size: 14px; color: var(--text-bright); }
+
+  /* GRID 2 */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+
+  /* SCENARIO BOX */
+  .scenario-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--accent2);
+    padding: 24px;
+    margin: 16px 0;
+  }
+
+  .scenario-box h3 {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 12px;
+  }
+
+  .scenario-box p {
+    font-size: 14px;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    .main { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .tool-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="badge">Unclassified // FOUO</div>
+    <div class="header-title">FORENSIC CASE STUDY</div>
+    <div class="header-meta">
+      <span class="status-dot"></span>PORTFOLIO ACTIVE<br>
+      CASE: TT-2024-047 // DIGITAL FORENSICS
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="case-number">CASE FILE // TT-2024-047 // OPERATION TIMBER TRAIL</div>
+    <h1>OPERATION<br><span>TIMBER TRAIL</span></h1>
+    <p class="hero-desc">
+      A homeland security–style digital forensics investigation demonstrating evidence acquisition, forensic imaging, deleted file recovery, OSINT analysis, and professional documentation.
+    </p>
+    <div class="tags">
+      <span class="tag tag-blue">Evidence Acquisition</span>
+      <span class="tag tag-blue">Forensic Imaging</span>
+      <span class="tag tag-orange">Deleted File Recovery</span>
+      <span class="tag tag-orange">File Carving</span>
+      <span class="tag tag-green">OSINT</span>
+      <span class="tag tag-green">Timeline Analysis</span>
+      <span class="tag tag-yellow">Chain of Custody</span>
+      <span class="tag tag-yellow">Hash Verification</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="nav-section-label">Investigation</div>
+    <a class="nav-item active" href="#s1"><span class="nav-num">01</span>Scenario</a>
+    <a class="nav-item" href="#s2"><span class="nav-num">02</span>Evidence Acquisition</a>
+    <a class="nav-item" href="#s3"><span class="nav-num">03</span>Forensic Analysis</a>
+    <a class="nav-item" href="#s4"><span class="nav-num">04</span>Deleted File Recovery</a>
+    <a class="nav-item" href="#s5"><span class="nav-num">05</span>Investigative Pivot</a>
+    <a class="nav-item" href="#s6"><span class="nav-num">06</span>OSINT Expansion</a>
+    <div class="nav-section-label">Documentation</div>
+    <a class="nav-item" href="#s7"><span class="nav-num">07</span>Forensic Docs</a>
+    <a class="nav-item" href="#s8"><span class="nav-num">08</span>Portfolio Presentation</a>
+    <div class="nav-section-label">Deliverables</div>
+    <a class="nav-item" href="#s9"><span class="nav-num">09</span>Advanced Additions</a>
+    <a class="nav-item" href="#s10"><span class="nav-num">10</span>Final Structure</a>
+  </nav>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- SECTION 1: SCENARIO -->
+    <div class="section" id="s1">
+      <div class="section-header">
+        <div class="section-num">01</div>
+        <div class="section-title-wrap">
+          <div class="section-label">Case Background</div>
+          <div class="section-title">Investigation Scenario</div>
+        </div>
+      </div>
+
+      <div class="scenario-box">
+        <h3>⚠ Case Synopsis — Operation Timber Trail</h3>
+        <p>HSI (Homeland Security Investigations) agents executing a federal search warrant at a residential address seize multiple digital devices suspected of containing evidence related to fraud and trafficking of stolen goods. Among the items seized is a Dell Inspiron laptop belonging to the primary subject.</p>
+        <p>During a preliminary site walkthrough, agents photograph the interior of the residence. The living room contains a distinctive sectional sofa — later identified as a key evidentiary item potentially linking the subject to the sale of stolen property from a local furniture business.</p>
+        <p>The laptop is transported to the HSI digital forensics lab. Your role: Computer Forensic Analyst. You have been assigned to conduct a complete forensic examination of the seized hard drive and document all findings.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Case Identifiers</div>
+          <table class="data-table">
+            <tr><td style="color:var(--text-dim); font-size:12px;">Case No.</td><td class="mono-cell">TT-2024-047</td></tr>
+            <tr><td style="color:var(--text-dim); font-size:12px;">Agency</td><td style="font-size:13px;">HSI / Cyber Division</td></tr>
+            <tr><td style="color:var(--text-dim); font-size:12px;">Examiner</td><td style="font-size:13px;">[Your Name]</td></tr>
+            <tr><td style="color:var(--text-dim); font-size:12px;">Device</td><td style="font-size:13px;">Dell Inspiron 15 Laptop</td></tr>
+            <tr><td style="color:var(--text-dim); font-size:12px;">Drive</td><td style="font-size:13px;">1TB WD SATA HDD</td></tr>
+            <tr><td style="color:var(--text-dim); font-size:12px;">OS</td><td style="font-size:13px;">Windows 10 Pro</td></tr>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-title">Investigative Goals</div>
+          <ul style="list-style:none; font-size:13px;">
+            <li style="padding: 6px 0; border-bottom: 1px solid var(--border); color:var(--text);">🔍 Recover deleted image files from drive</li>
+            <li style="padding: 6px 0; border-bottom: 1px solid var(--border); color:var(--text);">📸 Identify photo showing distinctive couch</li>
+            <li style="padding: 6px 0; border-bottom: 1px solid var(--border); color:var(--text);">🛋 Trace couch to specific local furniture store</li>
+            <li style="padding: 6px 0; border-bottom: 1px solid var(--border); color:var(--text);">📋 Extract metadata from recovered images</li>
+            <li style="padding: 6px 0; border-bottom: 1px solid var(--border); color:var(--text);">🔗 Establish evidence chain linking subject to crime</li>
+            <li style="padding: 6px 0; color:var(--text);">📝 Produce court-ready forensic report</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 2: EVIDENCE ACQUISITION -->
+    <div class="section" id="s2">
+      <div class="section-header">
+        <div class="section-num">02</div>
+        <div class="section-title-wrap">
+          <div class="section-label">Forensic Procedure</div>
+          <div class="section-title">Evidence Acquisition</div>
+        </div>
+      </div>
+
+      <div class="alert alert-crit">
+        <div class="alert-icon">🔒</div>
+        <div class="alert-text"><strong>Critical:</strong> Every step must be documented before proceeding. Improper handling voids the evidentiary value of the entire drive. Write-block BEFORE powering the device.</div>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Physical Seizure & Packaging</h4>
+            <p>At the scene, the laptop is powered off (hard shutdown — pull battery if possible to avoid write operations). Document the device with photographs showing all ports, serial numbers, and physical condition. Place in anti-static evidence bag. Apply tamper-evident evidence tape. Assign Evidence Item #E-001.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Chain of Custody Form (CF-1)</h4>
+            <p>Complete the CF-1 form immediately at seizure. Document: date/time of seizure, seizing agent, case number, description of item, condition, and location seized from. Every subsequent transfer of the evidence must be logged — name, date, reason, and signature. This form is your evidentiary lifeline.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Lab Intake & Write Blocker</h4>
+            <p>In the forensics lab, remove the hard drive from the laptop (document each screw removed if relevant). Attach a Tableau TX1 or Wiebetech write blocker via SATA/USB interface BEFORE connecting to your forensic workstation. Verify the write blocker LED indicates blocked write status. This physically prevents any data from being written to the evidence drive.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h4>Forensic Image Acquisition (FTK Imager)</h4>
+            <p>Launch FTK Imager → File → Create Disk Image → Physical Drive. Select the evidence drive. Output format: E01 (EnCase) or DD/RAW. Set destination to your forensic workstation (separate evidence-grade drive). Acquire the complete physical image including unallocated space and slack space.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <h4>Hash Verification</h4>
+            <p>During acquisition, FTK Imager automatically generates MD5 and SHA-256 hashes of the source drive. Upon completion, verify the hash of the acquired image matches the source exactly. Any mismatch indicates corruption or tampering — the image is inadmissible. Document both hash values in your evidence log.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Hash Verification Example</div>
+        <div class="code-block">
+<pre><span class="code-comment"># Source Drive Hash (computed at seizure)</span>
+<span class="code-cmd">MD5  :</span> <span class="code-hash">a3f8c2e91b4d7056fe2a1c3d8b9e0f14</span>
+<span class="code-cmd">SHA256:</span> <span class="code-hash">4a7b1c9e2d5f0389ab4c6d1e8f2a3b7c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4</span>
+
+<span class="code-comment"># Forensic Image Hash (computed after acquisition)</span>
+<span class="code-cmd">MD5  :</span> <span class="code-hash">a3f8c2e91b4d7056fe2a1c3d8b9e0f14</span>  <span class="code-comment">✓ MATCH</span>
+<span class="code-cmd">SHA256:</span> <span class="code-hash">4a7b1c9e2d5f0389ab4c6d1e8f2a3b7c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4</span>  <span class="code-comment">✓ MATCH</span>
+
+<span class="code-comment"># FTK Imager CLI verification</span>
+<span class="code-cmd">ftkimager</span> <span class="code-val">\\.\PhysicalDrive1</span> E:\Evidence\TT-2024-047\E-001 --e01 --verify</pre>
+        </div>
+      </div>
+
+      <div class="alert alert-info">
+        <div class="alert-icon">💡</div>
+        <div class="alert-text"><strong>Portfolio tip:</strong> For your demo project, create a small (2–5GB) test disk image using <code>dd</code> on Linux or FTK Imager against a USB drive you control. Compute real MD5/SHA-256 values and document them. This makes the hash verification section fully demonstrable.</div>
+      </div>
+    </div>
+
+    <!-- SECTION 3: FORENSIC ANALYSIS -->
+    <div class="section" id="s3">
+      <div class="section-header">
+        <div class="section-num">03</div>
+        <div class="section-title-wrap">
+          <div class="section-label">Examination Phase</div>
+          <div class="section-title">Forensic Analysis Workflow</div>
+        </div>
+      </div>
+
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-icon">🔬</div>
+          <div class="tool-name">Autopsy</div>
+          <div class="tool-desc">Primary GUI forensic platform. File system, timeline, keyword search.</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon">💾</div>
+          <div class="tool-name">FTK Imager</div>
+          <div class="tool-desc">Acquisition, preview, hash verification.</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon">⚙️</div>
+          <div class="tool-name">Sleuth Kit</div>
+          <div class="tool-desc">CLI-based file system analysis. Works under Autopsy.</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon">📦</div>
+          <div class="tool-name">Bulk Extractor</div>
+          <div class="tool-desc">Automated extraction of emails, URLs, images, credit card numbers.</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon">🕵️</div>
+          <div class="tool-name">ExifTool</div>
+          <div class="tool-desc">Extract EXIF metadata (GPS, device, timestamps) from recovered images.</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-icon">📁</div>
+          <div class="tool-name">PhotoRec / Foremost</div>
+          <div class="tool-desc">File carving tools for unallocated space recovery.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Autopsy Analysis Workflow</div>
+        <div class="steps">
+          <div class="step" style="margin-bottom: 10px;">
+            <div class="step-num" style="font-size:22px;">1</div>
+            <div class="step-content">
+              <h4>Create New Case in Autopsy</h4>
+              <p>New Case → Case Name: TT-2024-047 → Add Data Source → Disk Image (E01 file) → Run ingest modules: Hash Lookup, File Type ID, EXIF Parser, Keyword Search, Recent Activity.</p>
+            </div>
+          </div>
+          <div class="step" style="margin-bottom: 10px;">
+            <div class="step-num" style="font-size:22px;">2</div>
+            <div class="step-content">
+              <h4>File System Analysis</h4>
+              <p>Examine NTFS partition structure. Browse C:\Users\[Subject]\Pictures, Downloads, Documents, AppData. Review the $MFT (Master File Table) for complete file history including deleted entries. Use Sleuth Kit's <code>fls</code> command to list all files including deleted ones marked with an asterisk (*).</p>
+            </div>
+          </div>
+          <div class="step" style="margin-bottom: 10px;">
+            <div class="step-num" style="font-size:22px;">3</div>
+            <div class="step-content">
+              <h4>Timeline Analysis</h4>
+              <p>Use Autopsy's Timeline view to generate an activity timeline. Sort by file creation, modification, and access times. Look for clusters of activity — a large batch of image files accessed on the same day may indicate a specific event. Export the timeline to a CSV for documentation.</p>
+            </div>
+          </div>
+          <div class="step" style="margin-bottom: 10px;">
+            <div class="step-num" style="font-size:22px;">4</div>
+            <div class="step-content">
+              <h4>Keyword Searching</h4>
+              <p>Build keyword lists in Autopsy: furniture store names, model numbers, "couch," "sectional," "receipt," "purchase." Also search for email addresses, phone numbers, and the specific store name identified in OSINT. Add regex patterns for common receipt formats.</p>
+            </div>
+          </div>
+          <div class="step" style="margin-bottom: 10px;">
+            <div class="step-num" style="font-size:22px;">5</div>
+            <div class="step-content">
+              <h4>Bulk Extractor Analysis</h4>
+              <p>Run Bulk Extractor against the image for automatic extraction: <code>bulk_extractor -o output_dir image.E01</code>. Review email.txt, url.txt, and any detected credit card numbers that may corroborate a purchase from the furniture store.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="code-block">
+<pre><span class="code-comment"># Sleuth Kit — List deleted files in a directory</span>
+<span class="code-cmd">fls</span> <span class="code-val">-r -d</span> image.E01 3  <span class="code-comment"># inode 3 = root</span>
+
+<span class="code-comment"># Output example — asterisk denotes deleted</span>
+<span class="code-val">* r/r 45821-128-3: Users/Subject/Pictures/couch_delivery.jpg</span>
+<span class="code-val">* r/r 45844-128-3: Users/Subject/Documents/furniture_receipt.pdf</span>
+
+<span class="code-comment"># Extract file by inode number</span>
+<span class="code-cmd">icat</span> image.E01 <span class="code-val">45821</span> > recovered_couch.jpg</pre>
+      </div>
+    </div>
+
+    <!-- SECTION 4: DELETED FILE RECOVERY -->
+    <div class="section" id="s4">
+      <div class="section-header">
+        <div class="section-num">04</div>
+        <div class="section-title-wrap">
+          <div class="section-label">Key Evidence</div>
+          <div class="section-title">Deleted File Recovery</div>
+        </div>
+      </div>
+
+      <div class="highlight">
+        <p>During the MFT analysis, Autopsy flags two deleted JPEG files in the user's Pictures directory. One of them — <strong>IMG_20240318_142237.jpg</strong> — is identified as an image of the subject's living room showing a distinctive gray sectional sofa with a visible manufacturer tag.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Recovery Method 1 — MFT Carving</div>
+          <p>The NTFS Master File Table retains metadata entries for deleted files. When a file is deleted, Windows marks the MFT record as available but does not immediately overwrite it. Autopsy identifies the deleted record, retrieves the cluster chain, and reassembles the file. <strong>Best case: file data still intact in original clusters.</strong></p>
+        </div>
+        <div class="card">
+          <div class="card-title">Recovery Method 2 — File Carving</div>
+          <p>If the MFT entry is overwritten, use Foremost or PhotoRec to scan unallocated space for JPEG signatures. JPEG files begin with the magic bytes <code>FF D8 FF</code> and end with <code>FF D9</code>. Carving tools scan the entire drive for these byte sequences and reconstruct files regardless of filesystem metadata.</p>
+        </div>
+      </div>
+
+      <div class="code-block">
+<pre><span class="code-comment"># Method 1 — Autopsy recovery via MFT</span>
+<span class="code-comment"># In Autopsy: right-click deleted file → Extract File</span>
+
+<span class="code-comment"># Method 2 — Foremost file carving</span>
+<span class="code-cmd">foremost</span> <span class="code-val">-t jpg,png,pdf</span> -i image.E01 -o ./carved_output/
+
+<span class="code-comment"># Method 3 — PhotoRec (interactive)</span>
+<span class="code-cmd">photorec</span> image.E01
+
+<span class="code-comment"># Method 4 — Manual JPEG carve with dd</span>
+<span class="code-comment"># Find JPEG header offset with grep/xxd, then:</span>
+<span class="code-cmd">dd</span> if=image.E01 bs=512 skip=<span class="code-val">921440</span> count=<span class="code-val">512</span> of=recovered.jpg
+
+<span class="code-comment"># Extract EXIF from recovered image</span>
+<span class="code-cmd">exiftool</span> recovered_couch.jpg</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-title">EXIF Metadata — Recovered Image</div>
+        <table class="data-table">
+          <thead><tr><th>EXIF Field</th><th>Value</th><th>Significance</th></tr></thead>
+          <tbody>
+            <tr><td>File Name</td><td class="mono-cell">IMG_20240318_142237.jpg</td><td style="font-size:12px; color:var(--text-dim);">Timestamp embedded in filename</td></tr>
+            <tr><td>Date/Time Original</td><td class="mono-cell">2024:03:18 14:22:37</td><td style="font-size:12px; color:var(--text-dim);">Corroborates purchase date</td></tr>
+            <tr><td>GPS Latitude</td><td class="mono-cell">29.4241° N</td><td style="font-size:12px; color:var(--text-dim);">San Antonio metro area</td></tr>
+            <tr><td>GPS Longitude</td><td class="mono-cell">98.4936° W</td><td style="font-size:12px; color:var(--text-dim);">Precise residential location</td></tr>
+            <tr><td>Device Make/Model</td><td class="mono-cell">Samsung SM-G998B</td><td style="font-size:12px; color:var(--text-dim);">Corroborates device ownership</td></tr>
+            <tr><td>Image Width/Height</td><td class="mono-cell">4032 × 3024</td><td style="font-size:12px; color:var(--text-dim);">12MP — high-res, brand tag readable</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SECTION 5: INVESTIGATIVE PIVOT -->
+    <div class="section" id="s5">
+      <div class="section-header">
+        <div class="section-num">05</div>
+        <div class="section-title-wrap">
+          <div class="section-label">Lead Development</div>
+          <div class="section-title">Investigative Pivot</div>
+        </div>
+      </div>
+
+      <p style="font-size: 14px; margin-bottom: 20px; color: var(--text);">The recovered photograph shows a gray sectional sofa in the subject's living room. A manufacturer label is partially visible. This becomes the investigative pivot point — tracing the couch to its purchase location.</p>
+
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-time">STEP 01 — Visual Analysis</div>
+          <div class="timeline-event">Identify couch brand from visible label</div>
+          <div class="timeline-detail">Zoom into the recovered high-resolution image. The manufacturer tag reads "Comfort Craft — Model: CC-4490-GRY." This is a distinctive mid-market sectional.</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">STEP 02 — Reverse Image Search</div>
+          <div class="timeline-event">Google Images / TinEye search of the couch</div>
+          <div class="timeline-detail">Screenshot the couch from the recovered photo. Use reverse image search tools to find matching product listings. Identify the model as sold exclusively through small regional furniture retailers.</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">STEP 03 — Manufacturer Research</div>
+          <div class="timeline-event">Contact or research Comfort Craft's dealer network</div>
+          <div class="timeline-detail">Comfort Craft's website lists authorized dealers. One dealer — "Rivera's Home Furnishings" — is located 4.2 miles from the GPS coordinates in the EXIF data.</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">STEP 04 — Cross-Reference Purchase Window</div>
+          <div class="timeline-event">Correlate EXIF date with store records</div>
+          <div class="timeline-detail">EXIF timestamp: March 18, 2024. The photo was taken the same day as the likely delivery. Agents can now request purchase records from Rivera's Home Furnishings for that date range via subpoena.</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">STEP 05 — Browser Artifact Corroboration</div>
+          <div class="timeline-event">Review browsing history from forensic image</div>
+          <div class="timeline-detail">Autopsy's web artifact module shows the subject visited riverafurniture.com on March 10, 2024 and viewed the exact CC-4490-GRY listing. Screenshots from the browser cache are extracted as supporting evidence.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 6: OSINT -->
+    <div class="section" id="s6">
+      <div class="section-header">
+        <div class="section-num">06</div>
+        <div class="section-title-wrap">
+          <div class="section-label">Open Source Intelligence</div>
+          <div class="section-title">OSINT Expansion</div>
+        </div>
+      </div>
+
+      <div class="alert alert-warn">
+        <div class="alert-icon">⚠️</div>
+        <div class="alert-text"><strong>Note for portfolio:</strong> All OSINT in this case study is simulated. In actual investigations, OSINT collection must comply with agency policy, applicable law, and privacy regulations. Document your methods and legal basis for each data collection action.</div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Store Identification Methods</div>
+          <p><strong>Business registry search:</strong> Search state business registration databases for furniture retailers near the GPS coordinates. Texas Secretary of State business search is publicly accessible.</p>
+          <p><strong>Google Maps:</strong> Plot the EXIF GPS coordinates. Identify furniture stores within a 5-mile radius.</p>
+          <p><strong>Yelp / Google Business:</strong> Search for "Rivera's Home Furnishings" to confirm address, phone, hours, and owner information.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">Narrowing the Suspect Pool</div>
+          <p><strong>Sales record subpoena:</strong> Investigators obtain a subpoena for Rivera's sales records for the CC-4490-GRY model in the March 2024 window. Only three units were sold.</p>
+          <p><strong>Delivery records:</strong> The store's delivery log includes the delivery address. One matches the residence address associated with the subject.</p>
+          <p><strong>Payment method:</strong> The transaction was paid via debit card linked to the subject's known bank account.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">OSINT Tools Used</div>
+        <table class="data-table">
+          <thead><tr><th>Tool</th><th>Purpose</th><th>Data Obtained</th></tr></thead>
+          <tbody>
+            <tr><td style="font-family:var(--mono); font-size:12px;">Google Maps</td><td style="font-size:12px;">Geocode EXIF GPS coordinates</td><td style="font-size:12px; color:var(--text-dim);">Confirmed residential address</td></tr>
+            <tr><td style="font-family:var(--mono); font-size:12px;">TinEye</td><td style="font-size:12px;">Reverse image search couch</td><td style="font-size:12px; color:var(--text-dim);">Matched product listing page</td></tr>
+            <tr><td style="font-family:var(--mono); font-size:12px;">TX SOS Search</td><td style="font-size:12px;">Identify business ownership</td><td style="font-size:12px; color:var(--text-dim);">Owner name + registration date</td></tr>
+            <tr><td style="font-family:var(--mono); font-size:12px;">Wayback Machine</td><td style="font-size:12px;">Archive of store's product page</td><td style="font-size:12px; color:var(--text-dim);">Confirmed product was listed for sale in March 2024</td></tr>
+            <tr><td style="font-family:var(--mono); font-size:12px;">Maltego</td><td style="font-size:12px;">Entity relationship mapping</td><td style="font-size:12px; color:var(--text-dim);">Link chart: subject → store → receipt</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SECTION 7: DOCUMENTATION -->
+    <div class="section" id="s7">
+      <div class="section-header">
+        <div class="section-num">07</div>
+        <div class="section-title-wrap">
+          <div class="section-label">Court-Ready Records</div>
+          <div class="section-title">Forensic Documentation</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Required Documents</div>
+          <ul class="checklist">
+            <li><div class="check-box"></div><div><div class="check-label">Evidence Log (EL-1)</div><div class="check-note">Item #, description, condition, location, date/time</div></div></li>
+            <li><div class="check-box"></div><div><div class="check-label">Chain of Custody Form (CF-1)</div><div class="check-note">Every transfer signed and dated</div></div></li>
+            <li><div class="check-box"></div><div><div class="check-label">Forensic Examination Notes</div><div class="check-note">Timestamped log of every analyst action</div></div></li>
+            <li><div class="check-box"></div><div><div class="check-label">Hash Verification Report</div><div class="check-note">MD5 + SHA-256 for source and image</div></div></li>
+            <li><div class="check-box"></div><div><div class="check-label">Tool Validation Records</div><div class="check-note">Version numbers, calibration certificates</div></div></li>
+            <li><div class="check-box"></div><div><div class="check-label">Final Forensic Report</div><div class="check-note">Comprehensive findings summary</div></div></li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title">Final Report Structure</div>
+          <ul class="checklist">
+            <li><div class="check-box"></div><div><div class="check-label">1. Executive Summary</div><div class="check-note">1-page overview for non-technical readers</div></div></li>
+            <li><div class="check-box"></div><div><div class="check-label">2. Scope & Methodology</div><div class="check-note">What was examined, how, and why</div></div></li>
+            <li><div class="check-box"></div><div><div class="check-label">3. Evidence Inventory</div><div class="check-note">All items examined with identifiers</div></div></li>
+            <li><div class="check-box"></div><div><div class="check-label">4. Findings of Fact</div><div class="check-note">What was discovered — factual, no speculation</div></div></li>
+            <li><div class="check-box"></div><div><div class="check-label">5. Relevant Artifacts</div><div class="check-note">Screenshots, extracted files, metadata</div></div></li>
+            <li><div class="check-box"></div><div><div class="check-label">6. Analyst Certification</div><div class="check-note">Signed statement of accuracy</div></div></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="alert alert-info">
+        <div class="alert-icon">📝</div>
+        <div class="alert-text"><strong>Pro tip:</strong> Write every examination note in the <em>past tense</em>, first-person, as if testifying. "I connected the write blocker… I generated a SHA-256 hash… The hash matched." This is how forensic examiners write to withstand cross-examination. Never speculate — stick to observable facts.</div>
+      </div>
+    </div>
+
+    <!-- SECTION 8: PORTFOLIO -->
+    <div class="section" id="s8">
+      <div class="section-header">
+        <div class="section-num">08</div>
+        <div class="section-title-wrap">
+          <div class="section-label">Public Showcase</div>
+          <div class="section-title">Portfolio Presentation</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">GitHub Repository Structure</div>
+        <p style="margin-bottom:12px;">Create a public GitHub repo: <strong>operation-timber-trail-forensics</strong>. This is your live portfolio artifact.</p>
+        <div class="folder-tree">
+<span class="dir">operation-timber-trail-forensics/</span>
+├── <span class="dir">README.md</span>                    <span class="comment">← Case overview, tools used, findings summary</span>
+├── <span class="dir">01_scenario/</span>
+│   └── <span class="file-imp">case_synopsis.md</span>          <span class="comment">← Full background narrative</span>
+├── <span class="dir">02_acquisition/</span>
+│   ├── <span class="file-imp">chain_of_custody.pdf</span>      <span class="comment">← Filled CoC form</span>
+│   ├── <span class="file-imp">hash_verification.txt</span>     <span class="comment">← MD5 / SHA-256 values</span>
+│   └── <span class="file">screenshots/</span>              <span class="comment">← FTK Imager acquisition</span>
+├── <span class="dir">03_analysis/</span>
+│   ├── <span class="file-imp">autopsy_findings.md</span>       <span class="comment">← Documented analysis steps</span>
+│   ├── <span class="file-imp">timeline_export.csv</span>       <span class="comment">← Activity timeline</span>
+│   ├── <span class="file-imp">keyword_hits.txt</span>          <span class="comment">← Search results</span>
+│   └── <span class="file">screenshots/</span>              <span class="comment">← Autopsy UI screenshots</span>
+├── <span class="dir">04_recovery/</span>
+│   ├── <span class="file-imp">recovery_notes.md</span>         <span class="comment">← Step-by-step recovery log</span>
+│   ├── <span class="file-imp">exif_output.txt</span>           <span class="comment">← ExifTool output</span>
+│   └── <span class="file">carved_samples/</span>           <span class="comment">← Placeholder/demo images</span>
+├── <span class="dir">05_osint/</span>
+│   ├── <span class="file-imp">osint_notes.md</span>
+│   └── <span class="file">screenshots/</span>
+├── <span class="dir">06_final_report/</span>
+│   └── <span class="file-imp">TT-2024-047_Forensic_Report.pdf</span>
+└── <span class="dir">07_demo_image/</span>
+    ├── <span class="file-imp">create_demo_image.sh</span>      <span class="comment">← Script to generate test disk image</span>
+    └── <span class="file-imp">README_demo.md</span>            <span class="comment">← How to reproduce the demo</span>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">README Must-Haves</div>
+          <p>Your README is your first impression. Include: case number, brief narrative, tools list with versions, key findings, and a <strong>disclaimer</strong> ("This is a simulated portfolio project for educational purposes. No real investigation data is included.").</p>
+          <p>Add a Mermaid.js diagram of the investigation workflow — GitHub renders these natively.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">Screenshot Standards</div>
+          <p>Every screenshot should have: a red annotation box highlighting the key finding, a caption with timestamp and description, and the tool name visible. Tools like Greenshot or Flameshot let you annotate in real-time.</p>
+          <p>For the demo, you can use a freely available NIST CFReDS disk image to generate real tool output.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 9: ADVANCED -->
+    <div class="section" id="s9">
+      <div class="section-header">
+        <div class="section-num">09</div>
+        <div class="section-title-wrap">
+          <div class="section-label">Differentiate Your Work</div>
+          <div class="section-title">Advanced Additions</div>
+        </div>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">A</div>
+          <div class="step-content">
+            <h4>Create a Real Simulated Disk Image</h4>
+            <p>Use a Linux system to create a 2GB virtual disk with planted evidence. Add a JPEG file, a PDF "receipt," and a text file, then "delete" them. Image the virtual disk with FTK Imager or <code>dd</code>, compute hashes, and run the full analysis against it. This gives you real, reproducible tool output — not screenshots from a tutorial.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">B</div>
+          <div class="step-content">
+            <h4>Timeline Visualization</h4>
+            <p>Export the Autopsy timeline CSV and build an interactive timeline using Python (plotly/matplotlib) or a free tool like TimelineJS. A visual evidence timeline dramatically improves the final report's readability and is impressive in a portfolio.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">C</div>
+          <div class="step-content">
+            <h4>File Carving Demonstration</h4>
+            <p>Plant a JPEG on your virtual disk, delete it, wipe the filename from the MFT, then use Foremost to carve it back. Document every step with screenshots. This directly demonstrates one of the most important CFA skills.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">D</div>
+          <div class="step-content">
+            <h4>NIST Test Images</h4>
+            <p>Use the NIST CFReDS (Computer Forensics Reference Data Sets) images available at cfreds.nist.gov. These are real forensic challenge datasets used for training and tool validation — perfect for a portfolio showing you can handle industry-standard data.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">E</div>
+          <div class="step-content">
+            <h4>Maltego Link Analysis Chart</h4>
+            <p>Build a Maltego entity link chart showing the relationships: subject → device → deleted file → EXIF GPS → furniture store → sales record → subject. Export as a PNG for the final report. This visual storytelling is extremely effective for non-technical audiences (like prosecutors or juries).</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="code-block">
+<pre><span class="code-comment"># Create simulated evidence disk on Linux</span>
+<span class="code-cmd">dd</span> if=/dev/zero bs=1M count=<span class="code-val">2048</span> of=evidence_disk.img
+<span class="code-cmd">mkfs.ntfs</span> evidence_disk.img
+<span class="code-cmd">mkdir</span> /mnt/evidence && <span class="code-cmd">mount</span> -o loop evidence_disk.img /mnt/evidence
+
+<span class="code-comment"># Plant evidence files</span>
+<span class="code-cmd">cp</span> couch_photo.jpg /mnt/evidence/Users/Subject/Pictures/
+<span class="code-cmd">cp</span> furniture_receipt.pdf /mnt/evidence/Users/Subject/Documents/
+
+<span class="code-comment"># "Delete" evidence</span>
+<span class="code-cmd">rm</span> /mnt/evidence/Users/Subject/Pictures/couch_photo.jpg
+<span class="code-cmd">umount</span> /mnt/evidence
+
+<span class="code-comment"># Hash and image the disk</span>
+<span class="code-cmd">sha256sum</span> evidence_disk.img > evidence_disk.sha256
+<span class="code-comment"># Now open in FTK Imager or Autopsy to analyze</span></pre>
+      </div>
+    </div>
+
+    <!-- SECTION 10: FINAL STRUCTURE -->
+    <div class="section" id="s10">
+      <div class="section-header">
+        <div class="section-num">10</div>
+        <div class="section-title-wrap">
+          <div class="section-label">Complete Deliverable</div>
+          <div class="section-title">Final Project Structure</div>
+        </div>
+      </div>
+
+      <div class="highlight">
+        <p>The goal is a self-contained case study that a hiring manager, HSI panel, or PAQ evaluator can walk through entirely on GitHub — and clearly see that you understand the full forensic workflow from seizure to courtroom report.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Estimated Time Investment</div>
+        <table class="data-table">
+          <thead><tr><th>Phase</th><th>Activity</th><th>Est. Hours</th></tr></thead>
+          <tbody>
+            <tr><td style="font-size:12px;">Setup</td><td style="font-size:12px;">Create virtual disk, install tools (Autopsy, FTK, ExifTool)</td><td class="mono-cell">3–4 hrs</td></tr>
+            <tr><td style="font-size:12px;">Acquisition</td><td style="font-size:12px;">Image disk, compute hashes, fill CoC form</td><td class="mono-cell">2–3 hrs</td></tr>
+            <tr><td style="font-size:12px;">Analysis</td><td style="font-size:12px;">Autopsy full analysis + screenshots</td><td class="mono-cell">4–6 hrs</td></tr>
+            <tr><td style="font-size:12px;">Recovery</td><td style="font-size:12px;">Deleted file recovery + EXIF extraction</td><td class="mono-cell">2–3 hrs</td></tr>
+            <tr><td style="font-size:12px;">OSINT</td><td style="font-size:12px;">Research + document pivot steps</td><td class="mono-cell">2–3 hrs</td></tr>
+            <tr><td style="font-size:12px;">Documentation</td><td style="font-size:12px;">Final report PDF + all forms</td><td class="mono-cell">4–6 hrs</td></tr>
+            <tr><td style="font-size:12px;">GitHub</td><td style="font-size:12px;">Repo setup, README, timeline visual</td><td class="mono-cell">2–3 hrs</td></tr>
+            <tr><td style="font-size:12px; font-weight:600; color:var(--text-bright);">Total</td><td></td><td class="mono-cell" style="color:var(--accent3);">~20–28 hrs</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Tools to Download Now</div>
+          <ul style="list-style:none; font-size:13px;">
+            <li style="padding:5px 0; border-bottom:1px solid var(--border);">🔗 Autopsy — <span style="color:var(--accent); font-family:var(--mono); font-size:11px;">sleuthkit.org/autopsy</span></li>
+            <li style="padding:5px 0; border-bottom:1px solid var(--border);">🔗 FTK Imager — <span style="color:var(--accent); font-family:var(--mono); font-size:11px;">exterro.com (free)</span></li>
+            <li style="padding:5px 0; border-bottom:1px solid var(--border);">🔗 ExifTool — <span style="color:var(--accent); font-family:var(--mono); font-size:11px;">exiftool.org</span></li>
+            <li style="padding:5px 0; border-bottom:1px solid var(--border);">🔗 Foremost — <span style="color:var(--accent); font-family:var(--mono); font-size:11px;">apt install foremost</span></li>
+            <li style="padding:5px 0; border-bottom:1px solid var(--border);">🔗 Bulk Extractor — <span style="color:var(--accent); font-family:var(--mono); font-size:11px;">github.com/simsong</span></li>
+            <li style="padding:5px 0;">🔗 NIST CFReDS images — <span style="color:var(--accent); font-family:var(--mono); font-size:11px;">cfreds.nist.gov</span></li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title">Showcase Highlights for Interviews</div>
+          <ul style="list-style:none; font-size:13px;">
+            <li style="padding:5px 0; border-bottom:1px solid var(--border);">✅ Real MD5/SHA-256 hash verification documented</li>
+            <li style="padding:5px 0; border-bottom:1px solid var(--border);">✅ Deleted file recovered and EXIF extracted</li>
+            <li style="padding:5px 0; border-bottom:1px solid var(--border);">✅ File carving from unallocated space demonstrated</li>
+            <li style="padding:5px 0; border-bottom:1px solid var(--border);">✅ Full chain of custody maintained and documented</li>
+            <li style="padding:5px 0; border-bottom:1px solid var(--border);">✅ Investigation pivoted from image to physical store</li>
+            <li style="padding:5px 0;">✅ Court-ready report produced with professional formatting</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="alert alert-info" style="margin-top: 24px;">
+        <div class="alert-icon">🎯</div>
+        <div class="alert-text"><strong>Final note for your HSI application:</strong> When you present this project, emphasize the <em>analytical thinking</em> behind the investigative pivot — going from a photo of a couch to a specific store to a buyer. That kind of structured investigative reasoning is exactly what Computer Forensic Analysts are evaluated on. The tools are learnable; the thinking is what they're hiring for.</div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+  // Smooth scroll + active nav highlight
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', e => {
+      e.preventDefault();
+      const target = item.getAttribute('href');
+      document.querySelector(target)?.scrollIntoView({ behavior: 'smooth' });
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+
+  // Auto-highlight nav on scroll
+  const sections = document.querySelectorAll('.section');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        document.querySelectorAll('.nav-item').forEach(item => {
+          item.classList.toggle('active', item.getAttribute('href') === '#' + id);
+        });
+      }
+    });
+  }, { threshold: 0.3 });
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
