@@ -19,10 +19,16 @@ The case studies cover the full investigative lifecycle: from evidence seizure a
 
 ### Case TT-2024-047 — Operation Timber Trail
 > *Homeland Security–style digital forensic investigation*
+>
+> <img width="1123" height="505" alt="image" src="https://github.com/user-attachments/assets/c04046be-46ad-4f78-94a7-e524ab6acfc1" />
+
 
 **[View Case Study →](./forensics-portfolio-case-study.html)**
 
 A simulated HSI digital forensics examination of a seized hard drive. A deleted photograph of a distinctive piece of furniture becomes the central investigative lead, ultimately linking the subject to a local business through EXIF metadata, browser artifacts, and open-source intelligence.
+
+<img width="1114" height="771" alt="image" src="https://github.com/user-attachments/assets/d8d69427-dfec-4854-9286-6e337b98edda" />
+
 
 **Skills demonstrated:**
 - Forensic evidence acquisition and chain of custody documentation
@@ -35,10 +41,15 @@ A simulated HSI digital forensics examination of a seized hard drive. A deleted 
 - OSINT pivot from digital artifact to physical location
 - Professional forensic report writing
 
+- <img width="1155" height="684" alt="image" src="https://github.com/user-attachments/assets/95a1f370-7227-43ab-9ed6-834def8856a0" />
+
+
 **Tools used:**  
 `Autopsy` `FTK Imager` `Sleuth Kit` `Bulk Extractor` `ExifTool` `Foremost` `PhotoRec`
 
 ---
+<img width="809" height="309" alt="image" src="https://github.com/user-attachments/assets/82f1d6cd-a4db-43b1-aaef-8bda5ac270bb" />
+
 
 ## 🛠 Core Competencies
 
